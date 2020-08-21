@@ -33,6 +33,33 @@ def points2cloud(_points: np.ndarray) -> o3d.geometry.PointCloud:
     return cloud
 
 
+def points_split(_points: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    points = np.copy(_points)
+    x_min, y_min, z_min, i_min = points.min(0)
+    x_max, y_max, z_max, i_max = points.max(0)
+    step = 1.0
+    ground_points = []
+    object_points = []
+    for x in np.arange(x_min, x_max, step):
+        for y in np.arange(y_min, y_max, step):
+            condition = (points[:, 0] >= x) & (points[:, 0] < x + step) & \
+                        (points[:, 1] >= y) & (points[:, 1] < y + step)
+            cell_points: np.ndarray = points[condition]
+            if cell_points.size == 0:
+                continue
+            height = (cell_points.max(0) - cell_points.min(0))[2]
+            if height < step * 0.22:
+                ground_points.append(cell_points)
+            else:
+                object_points.append(cell_points)
+            # speed up
+            condition = np.logical_not(condition)
+            points = points[condition]
+    ground_points = np.vstack(ground_points)
+    object_points = np.vstack(object_points)
+    return ground_points, object_points
+
+
 def ground_segment(_points: np.ndarray) -> Tuple[o3d.geometry.PointCloud, o3d.geometry.PointCloud, np.ndarray]:
     points = np.copy(_points)
     above = points[points[:, 2] >= 0.0]
